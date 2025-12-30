@@ -150,7 +150,7 @@ def plot_results(groups: Dict[Tuple[int, int], List[BenchmarkResult]], output_pa
         ax1.grid(True, alpha=0.3)
 
         # Title
-        ax1.set_title(f"ISL:OSL = {isl}:{osl}", fontsize=13, pad=35)
+        ax1.set_title(f"ISL:OSL = {isl}:{osl}", fontsize=13, pad=45)
 
         # Store lines for shared legend (only need one set)
         if idx == 0:
