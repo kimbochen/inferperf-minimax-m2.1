@@ -84,7 +84,7 @@ def plot_results(groups: Dict[Tuple[int, int], List[BenchmarkResult]], output_pa
         return
 
     n_groups = len(groups)
-    fig, axes = plt.subplots(1, n_groups, figsize=(8 * n_groups, 6))
+    fig, axes = plt.subplots(n_groups, 1, figsize=(10, 6 * n_groups))
     if n_groups == 1:
         axes = [axes]
 
@@ -150,7 +150,7 @@ def plot_results(groups: Dict[Tuple[int, int], List[BenchmarkResult]], output_pa
         ax1.grid(True, alpha=0.3)
 
         # Title
-        ax1.set_title(f"ISL:OSL={isl}:{osl}", fontsize=13, pad=35)
+        ax1.set_title(f"ISL:OSL = {isl}:{osl}", fontsize=13, pad=35)
 
         # Store lines for shared legend (only need one set)
         if idx == 0:
@@ -158,12 +158,13 @@ def plot_results(groups: Dict[Tuple[int, int], List[BenchmarkResult]], output_pa
             legend_labels = [f'TTFT TP{tp}', f'Interactivity TP{tp}']
 
     # Shared legend at figure level with concurrency note
-    leg = fig.legend(legend_lines, legend_labels, loc='upper right', bbox_to_anchor=(0.99, 0.95), fontsize=10)
+    leg = fig.legend(legend_lines, legend_labels, loc='upper right', bbox_to_anchor=(0.98, 0.98), fontsize=10)
     # Add note explaining c=X labels
-    fig.text(0.99, 0.82, "c = max concurrency", fontsize=9, ha='right', style='italic', color='gray')
+    fig.text(0.98, 0.96 - 0.04, "c = max concurrency", fontsize=9, ha='right', style='italic', color='gray')
 
-    plt.suptitle("MiniMax M2.1 vLLM Benchmark", fontsize=16, y=1.02)
-    plt.tight_layout(rect=[0, 0, 0.92, 1])  # Leave room for legend on right
+    plt.suptitle("MiniMax M2.1 vLLM Benchmark", fontsize=16, ha='center', x=0.5)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.subplots_adjust(hspace=0.4)  # Add vertical space between graphs
 
     # Save plot
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
