@@ -44,37 +44,6 @@ python bench_serving/benchmark_serving.py \
 
 Supported backends: `vllm`, `sglang`, `tgi`, `tensorrt-llm`, `openai`, `openai-chat`, `lmdeploy`, `deepspeed-mii`, `scalellm`
 
-### Using InferenceMAX benchmark scripts
-
-Benchmark scripts follow naming convention: `{model}_{precision}_{gpu}_{framework}_{env}.sh`
-
-Example: `dsr1_fp8_h200_slurm.sh` runs DeepSeek-R1 FP8 on H200 via Slurm
-
-Scripts require environment variables:
-- `MODEL`: HuggingFace model path
-- `TP`: Tensor parallelism degree
-- `CONC`: Max concurrency
-- `ISL`/`OSL`: Input/output sequence lengths
-- `RANDOM_RANGE_RATIO`: Variance in sequence lengths
-- `RESULT_FILENAME`: Output JSON filename
-- `PORT_OFFSET`: Port offset for server
-
-### Workflow Testing (GitHub Actions)
-
-Test configurations via `utils/matrix_logic/generate_sweep_configs.py`:
-
-```bash
-# Test single-node configs for specific model/hardware
-python utils/matrix_logic/generate_sweep_configs.py full-sweep \
-    --single-node \
-    --model-prefix dsr1 \
-    --runner-type h200 \
-    --precision fp8 \
-    --seq-lens 1k1k \
-    --config-files .github/configs/nvidia-master.yaml \
-    --runner-config .github/configs/runners.yaml
-```
-
 ## Key Metrics
 
 Benchmarks measure:
