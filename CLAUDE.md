@@ -4,79 +4,95 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains LLM inference benchmarking tools for MiniMax M2.1 model on vLLM, including:
-- **bench_serving**: Python client for running serving benchmarks against various inference backends
-- **plot_results.py**: Visualization script for benchmark results
-- **results/**: Directory containing benchmark result JSON files
+LLM inference benchmarking tools for MiniMax M2.1 model on vLLM, designed for Slurm clusters with pyxis container support.
 
 ## Repository Structure
 
 ```
 inferperf_minimax-m2.1/
-├── bench_serving/                    # Benchmark client (forked from vLLM benchmarks)
-│   ├── benchmark_serving.py          # Main benchmark runner
-│   ├── backend_request_func.py       # Backend-specific request functions
-│   └── benchmark_utils.py            # Output format utilities
-├── results/                          # Benchmark result JSON files
-│   └── minimax_m2.1_vllm_isl{ISL}_osl{OSL}_conc{CONC}_tp{TP}.json
+├── benchmark_serving_random.py       # Benchmark client (random prompt generation)
 ├── plot_results.py                   # Visualization script
-├── benchmark_plot.png                # Generated plot output
-└── minimax_m2.1_vllm_tp4_sbatch.sh   # Slurm batch script for running benchmarks
+├── serve_minimax_m2.1_sbatch.sh      # Slurm job: persistent vLLM server
+├── bmk_minimax_m2.1_sbatch.sh        # Slurm job: benchmark client
+├── results/                          # Benchmark result JSON files
+└── model_weights/                    # Downloaded model weights (not committed)
 ```
 
 ## Running Benchmarks
 
-### Using bench_serving directly
+### Two-Job Workflow (Server + Client)
+
+1. **Start the server:**
+   ```bash
+   sbatch serve_minimax_m2.1_sbatch.sh
+   ```
+
+2. **Submit the benchmark client:**
+   ```bash
+   sbatch bmk_minimax_m2.1_sbatch.sh
+   ```
+
+The server writes its URL to `/workspace/server_info.txt`. The client reads this file to connect.
+
+### Benchmark Client Sweep Configuration
+
+The client script runs a sweep of ISL × Concurrency combinations:
+- **Input lengths**: 1024, 6144, 10240, 12288, 14336
+- **Output length**: 128 (fixed)
+- **Concurrency**: 4, 8, 16, 32, 64
+- **Total runs**: 25 (5 ISL × 5 concurrency)
+
+### Using benchmark_serving_random.py directly
 
 ```bash
-python bench_serving/benchmark_serving.py \
-    --backend vllm \
-    --model <model_name> \
+python benchmark_serving_random.py \
+    --model MiniMaxAI/MiniMax-M2.1 \
     --base-url http://localhost:8000 \
-    --dataset-name random \
-    --random-input-len 1024 \
-    --random-output-len 1024 \
-    --num-prompts 1000 \
-    --max-concurrency 64 \
+    --random-input-len 2048 \
+    --random-output-len 128 \
+    --random-range-ratio 0.2 \
+    --num-prompts 160 \
+    --max-concurrency 16 \
+    --num-warmups 32 \
+    --request-rate inf \
     --ignore-eos \
-    --save-result
+    --result-filepath results/output.json
 ```
-
-Supported backends: `vllm`, `sglang`, `tgi`, `tensorrt-llm`, `openai`, `openai-chat`, `lmdeploy`, `deepspeed-mii`, `scalellm`
 
 ## Key Metrics
 
-Benchmarks measure:
-- **TTFT**: Time to first token (ms) - prefill latency
-- **TPOT**: Time per output token (ms, excluding first) - decode latency
-- **Interactivity**: 1000/TPOT (tok/s/user) - user-perceived generation speed
-- **Total Throughput**: Total tokens processed per second per GPU
+- **TTFT**: Time to first token (prefill latency)
+- **TPOT**: Time per output token, excluding first (decode latency)
+- **Interactivity**: 1000/TPOT_ms (tok/s/user) - user-perceived generation speed
+- **Throughput**: Input/output tokens processed per second
 
 ## Visualizing Results
 
-Use `plot_results.py` to generate benchmark plots:
-
 ```bash
-# Activate virtual environment
 source .venv/bin/activate
-
-# Generate plot from results directory
-python plot_results.py --results-dir results --output benchmark_plot.png
+python plot_results.py --results-dir results --output result_plot.png
 ```
 
 ### Plot Features
-- **Dual X-axis**: TTFT (top, orange) and Interactivity (bottom, blue)
-- **Y-axis**: Total Throughput per GPU (tok/s)
-- **Grouping**: Separate subplot per ISL/OSL combination
-- **Labels**: Concurrency (c=X) shown on each data point
+- **Two graphs**: Prefill and Decode (side by side)
+- **X-axis**: Token Position (ISL values from data)
+- **Y-axis**: Throughput (tok/s)
+- **Lines**: One per concurrency level (legend: "conc X")
 
 ### Result File Naming Convention
-Files must match pattern: `*_isl{ISL}_osl{OSL}_conc{CONC}_tp{TP}.json`
 
-Example: `minimax_m2.1_vllm_isl512_osl8192_conc16_tp4.json`
+Files must match: `*_tp{TP}_isl{ISL}_osl{OSL}_conc{CONC}.json`
 
-### Required JSON Fields
-- `median_tpot_ms`: Median time per output token
-- `median_ttft_ms`: Median time to first token
-- `total_token_throughput`: Total tokens/second
-- `output_throughput`: Output tokens/second
+Example: `minimax_m2.1_vllm_tp4_isl2048_osl128_conc16.json`
+
+### Required JSON Fields for Plotting
+
+- `input_throughput`: Input tokens/second (for Prefill graph)
+- `output_throughput`: Output tokens/second (for Decode graph)
+
+## Slurm Configuration
+
+Both scripts use pyxis for containerized execution:
+- Container: `vllm/vllm-openai:nightly-8711b216766bb5d3cbe15161061c3a7d9fffe59c`
+- Server: 4 GPUs, 128GB memory, tensor parallelism 4
+- Client: 0 GPUs, 16GB memory (CPU-only benchmark driver)
